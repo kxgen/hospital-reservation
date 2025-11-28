@@ -1,0 +1,15 @@
+
+# Visual Studio files
+*.user
+*.suo
+*.userosscache
+.vs/
+
+# Development secrets
+appsettings.Development.json
+
+# Logs
+*.log
+
+# Optional test files
+*.http
