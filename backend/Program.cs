@@ -1,10 +1,15 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Backend.Data;
+using Microsoft.AspNetCore.Mvc; // <- Make sure to include this namespace
 
 var builder = WebApplication.CreateBuilder(args);
 
 var jwtKey = builder.Configuration["Jwt:Key"];
+
+// Register UserRepository for DI
+builder.Services.AddSingleton<UserRepository>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -31,19 +36,26 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddAuthorization();
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            return new BadRequestObjectResult(context.ModelState);
+        };
+    });
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    // Correct CORS policy name
     app.UseCors("AllowVueDev");
 }
 
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseDeveloperExceptionPage();
 
 app.MapControllers();
 

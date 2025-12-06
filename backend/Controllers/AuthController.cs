@@ -1,76 +1,98 @@
+using Backend.Data;
+using Backend.DTOs;
+using Backend.Models;
+using Backend.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Backend.Models;
-using Backend.Data;
 
-[ApiController]
-[Route("api/[controller]")]
-public class AuthController : ControllerBase
+namespace Backend.Controllers
 {
-    private readonly IConfiguration _config;
-
-    public AuthController(IConfiguration config)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AuthController : ControllerBase
     {
-        // config is all merged settings, _config is the var used to access
-        _config = config;
-    }
+        private readonly UserRepository _userRepo;
+        private readonly IConfiguration _config;
 
-    [HttpPost("register")]
-    public IActionResult Register([FromBody] User user) {
-        if (string.IsNullOrWhiteSpace(user.Email) || string.IsNullOrWhiteSpace(user.Password))
-            return BadRequest(new { Message = "Email and password are required." });
-        
-        bool userExists = InMemoryStore.Users.Any(
-            u => u.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase)
-        );
-
-        if (userExists) {
-            return Conflict(new { Message = $"Email '{user.Email}' is already taken." });
+        public AuthController(UserRepository userRepo, IConfiguration config)
+        {
+            _userRepo = userRepo;
+            _config = config;
         }
-        var newUser = new User(user.Email, user.Password, "user");
-        InMemoryStore.Users.Add(newUser);
-        return Ok(new { Message = $"User {user.Email} registered successfully." });
-    }
 
-    [HttpPost("login")]
-    public IActionResult Login([FromBody] User user)
-    {
-        var validUser = InMemoryStore.Users.FirstOrDefault(u =>
-            u.Email == user.Email && u.Password == user.Password);
-
-        if (validUser == null)
-            return Unauthorized("Invalid credentials");
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-
-        // Read the key from configuration (appsettings.json)
-        // converting jwt key string to raw bytes array
-        var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"] ?? throw new Exception("JWT key missing in configuration"));
-
-        var tokenDescriptor = new SecurityTokenDescriptor
+        [HttpPost("register")]
+        public IActionResult Register([FromBody] RegisterDto dto)
         {
-            Subject = new ClaimsIdentity(new[]
+            if (dto.Password != dto.ConfirmPassword)
+                return BadRequest(new { Message = "Passwords do not match." });
+
+            if (_userRepo.EmailExists(dto.Email))
+                return Conflict(new { Message = "Email already exists." });
+
+            DateTime? dob = null;
+            if (!string.IsNullOrEmpty(dto.DateOfBirth))
+                dob = DateTime.Parse(dto.DateOfBirth);
+
+            var user = new User
             {
-                new Claim(ClaimTypes.Name, validUser.Email),
-                new Claim(ClaimTypes.Role, validUser.Role)
-            }),
-            Expires = DateTime.UtcNow.AddHours(1),
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(key),
-                SecurityAlgorithms.HmacSha256Signature)
-        };
+                FirstName = dto.FirstName,
+                LastName = dto.LastName,
+                DateOfBirth = dob,
+                Gender = dto.Gender,
+                Phone = dto.Phone,
+                Email = dto.Email,
+                PasswordHash = PasswordHasher.Hash(dto.Password),
+                Role = "patient"
+            };
 
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        var jwt = tokenHandler.WriteToken(token);
+            var userId = _userRepo.CreateUser(user);
 
-        return Ok(new
+            return Ok(new { Message = "User registered successfully.", UserId = userId });
+        }
+
+        [HttpPost("login")]
+        public IActionResult Login([FromBody] LoginDto dto)
         {
-            token = jwt,
-            email = validUser.Email,
-            role = validUser.Role
-        });
+            var user = _userRepo.GetUserByEmail(dto.Email);
+            if (user == null)
+                return Unauthorized(new { Message = "Invalid email or password." });
+
+            if (!PasswordHasher.Verify(dto.Password, user.PasswordHash))
+                return Unauthorized(new { Message = "Invalid email or password." });
+
+            var token = GenerateJwtToken(user);
+
+            return Ok(new { Token = token, User = user });
+        }
+
+        private string GenerateJwtToken(User user)
+        {
+            var claims = new[]
+            {
+                new Claim("id", user.Id.ToString()),
+                new Claim("email", user.Email),
+                new Claim("role", user.Role),
+                new Claim("name", user.FirstName + " " + user.LastName),
+            };
+
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_config["Jwt:Key"])
+            );
+
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: _config["Jwt:Issuer"],
+                audience: _config["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddDays(7),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
     }
 }
