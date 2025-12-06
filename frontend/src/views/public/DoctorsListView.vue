@@ -1,6 +1,6 @@
 <script setup>
 import Header from '@/components/Header.vue';
-import DoctorCard from '../components/DoctorCard.vue';
+import DoctorCard from '@/components/DoctorCard.vue';
 import { ref, computed } from 'vue';
 
 // --- Weekly schedule state ---

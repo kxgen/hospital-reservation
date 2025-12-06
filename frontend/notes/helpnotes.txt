@@ -1,0 +1,14 @@
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYiLCJlbWFpbCI6ImhlbGluYUBnbWFpbC5jb20iLCJyb2xlIjoicGF0aWVudCIsIm5hbWUiOiJIZWxpbmEgS2ViZWRlIiwiZXhwIjoxNzY1NjEwOTc1LCJpc3MiOiJCYWNrZW5kIn0.zI_pfjzwaKclVA1IPTxXbEG-HecAfTibOEhdmjkAlts",
+  "user": {
+    "id": 6,
+    "firstName": "Helina",
+    "lastName": "Kebede",
+XXX "dateOfBirth": null,
+XXX "gender": null,
+    "phone": "0900000000",
+    "email": "helina@gmail.com",
+    "passwordHash": "jZae727K08KaOmKSgOaGzww/XVqGr/PKEgIMkjrcbJI=",
+    "role": "patient"
+  }
+}

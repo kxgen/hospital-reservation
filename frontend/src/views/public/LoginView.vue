@@ -2,9 +2,9 @@
 import Header from '@/components/Header.vue'
 import axios from 'axios'
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-import { useRouter } from 'vue-router';
-const router = useRouter();
+const router = useRouter()
 
 const email = ref('')
 const password = ref('')
@@ -17,15 +17,31 @@ const login = async () => {
       password: password.value
     })
 
-    // Save JWT token
+    console.log(response)
     const token = response.data.token
+    const user = response.data.user
+
+    // Save token + role + name + id
     localStorage.setItem('token', token)
+    localStorage.setItem('role', user.role)
+    localStorage.setItem('userid', user.id)
+    localStorage.setItem('name', user.firstName + ' ' + user.lastName)
 
-    message.value = `Welcome ${response.data.email}`
     console.log('Token stored:', token)
+    console.log('Logged user:', user)
 
-    // redirect to home page
-    router.push('/')
+    message.value = `Welcome ${user.firstName}`
+
+    // Redirect based on role
+    const roleRoutes = {
+      patient: '/',
+      doctor: '/doctor/dashboard',
+      receptionist: '/reception/dashboard',
+      admin: '/admin/dashboard'
+    }
+
+    router.push(roleRoutes[user.role] || '/')
+
 
   } catch (error) {
     if (error.response) {
@@ -36,6 +52,7 @@ const login = async () => {
   }
 }
 </script>
+
 
 <template>
   <div class="login-view">
